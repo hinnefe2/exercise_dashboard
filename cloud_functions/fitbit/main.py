@@ -79,7 +79,7 @@ def handler(request):
     headers = {'Accept-Language': 'en_US',
                'Authorization': f'Bearer {request_json["state"]["access_token"]}'}
 
-    day = parser.parse(request_json['state']['cursor'])
+    day = parser.parse(request_json['state']['cursor']).date()
 
     activity = req.get(
         'https://api.fitbit.com/1/user/-/activities/date/'
