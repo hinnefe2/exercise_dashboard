@@ -110,7 +110,11 @@ def handler(request):
 
     activity_json = activity.json()
     weight_json = weight.json()
-    del activity_json['distances']
+
+    # remove the list of activities so we only have flat dictionary entries
+    # that we can do a **dict unpacking on to populate our insert list
+    if 'distances' in activity_json:
+        del activity_json['distances']
 
     has_weight = len(weight_json['weight']) > 0
 
