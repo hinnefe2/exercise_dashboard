@@ -133,8 +133,8 @@ def handler(request):
             'refresh_token': request_json['state']['refresh_token']
         },
         'insert': {
-            'activity': activity_insert,
-            'weight': weight_insert
+            'activity': [activity_insert],
+            'weight': [weight_insert]
         },
         'schema': {
             'activity': {
