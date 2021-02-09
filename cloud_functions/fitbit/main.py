@@ -65,6 +65,17 @@ def handler(request):
 
     request_json = request.get_json()
 
+    # initialize state for the case when fivetran is starting from scratch
+    # put initial values for the cursor and tokens in the 'secrets' node.
+    # fivetran should automatically keep track of subsequent updates in the
+    # 'state' node.
+    if 'cursor' not in request_json['state']:
+        request_json['state']['cursor'] = request_json['secrets']['cursor']
+    if 'access_token' not in request_json['state']:
+        request_json['state']['access_token'] = request_json['secrets']['access_token']
+    if 'refresh_token' not in request_json['state']:
+        request_json['state']['refresh_token'] = request_json['secrets']['refresh_token']
+
     headers = {'Accept-Language': 'en_US',
                'Authorization': f'Bearer {request_json["state"]["access_token"]}'}
 
