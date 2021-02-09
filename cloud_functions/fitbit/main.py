@@ -113,12 +113,12 @@ def handler(request):
 
     # remove the list of activities so we only have flat dictionary entries
     # that we can do a **dict unpacking on to populate our insert list
-    if 'distances' in activity_json:
-        del activity_json['distances']
+    if 'distances' in activity_json['summary']:
+        del activity_json['summary']['distances']
 
     has_weight = len(weight_json['weight']) > 0
 
-    activity_insert = {'date': day.isoformat(), **activity_json}
+    activity_insert = {'date': day.isoformat(), **activity_json['summary']}
     weight_insert = {'date': day.isoformat(), 'weight': weight_json['weight'][0] if has_weight else None}
 
     return {
