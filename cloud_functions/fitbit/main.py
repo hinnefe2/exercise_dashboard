@@ -106,20 +106,25 @@ def handler(request):
         }
 
     # parse the response from the fitbit API
-    has_more = day < dt.date.today()
-
     activity_json = activity.json()
     weight_json = weight.json()
 
-    # remove the list of activities so we only have flat dictionary entries
-    # that we can do a **dict unpacking on to populate our insert list
-    if 'distances' in activity_json['summary']:
-        del activity_json['summary']['distances']
+    activity_insert = {
+        'date': day.isoformat(),
+        'steps': activity_json['summary']['steps'],
+        'caloriesBMR': activity_json['summary']['caloriesBMR'],
+        'caloriesOut': activity_json['summary']['caloriesOut'],
+        'activityCalories': activity_json['summary']['activityCalories'],
+        'marginalCalories': activity_json['summary']['marginalCalories'],
+        'sedentaryMinutes': activity_json['summary']['sedentaryMinutes'],
+        'lightlyActiveMinutes': activity_json['summary']['lightlyActiveMinutes'],
+        'fairlyActiveMinutes': activity_json['summary']['fairlyActiveMinutes'],
+        'veryActiveMinutes': activity_json['summary']['veryActiveMinutes'],
+    }
 
-    has_weight = len(weight_json['weight']) > 0
-
-    activity_insert = {'date': day.isoformat(), **activity_json['summary']}
-    weight_insert = {'date': day.isoformat(), 'weight': weight_json['weight'][0] if has_weight else None}
+    weight_insert = {
+        'date': day.isoformat(),
+        'weight': weight_json['weight'][0] if len(weight_json['weight']) > 0 else None}
 
     return {
         'state': {
@@ -139,5 +144,5 @@ def handler(request):
                 'primary_key': ['date']
             }
         },
-        'hasMore': has_more
+        'hasMore': day < dt.date.today()
     }
