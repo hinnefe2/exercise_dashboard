@@ -1,6 +1,6 @@
 import base64
 import datetime as dt
-import requests as req
+import requests as rq
 
 from dateutil import parser
 
@@ -39,8 +39,8 @@ def refresh_fitbit_token(request):
     post_params = {'grant_type': 'refresh_token',
                    'refresh_token': request_json['state']['refresh_token']}
 
-    resp = req.post('https://api.fitbit.com/oauth2/token',
-                    headers=auth_header, params=post_params)
+    resp = rq.post('https://api.fitbit.com/oauth2/token',
+                   headers=auth_header, params=post_params)
 
     new_token = resp.json()
 
@@ -65,7 +65,7 @@ def handler(request):
 
     request_json = request.get_json()
 
-    # initialize state for the case when fivetran is starting from scratch
+    # initialize state for the case when fivetran is starting from scratch.
     # put initial values for the cursor and tokens in the 'secrets' node.
     # fivetran should automatically keep track of subsequent updates in the
     # 'state' node.
@@ -76,18 +76,36 @@ def handler(request):
     if 'refresh_token' not in request_json['state']:
         request_json['state']['refresh_token'] = request_json['secrets']['refresh_token']
 
+    cursor = request_json['state']['cursor']
+    cursor_date = parser.parse(cursor).date()
+
+    if cursor_date > dt.date.today():
+        raise ValueError(
+            f"cursor value {cursor_date.isoformat()} is later than "
+            f"today's date {dt.date.today().isoformat()}")
+
+    # if the cursor is at the current date return immediately without
+    # incrementing the cursor. This is to ensure we don't pull data for a day
+    # until that day is over.
+    if cursor_date == dt.date.today():
+        return {
+            'state': {
+                'cursor': cursor,
+            },
+            'hasMore': False
+        }
+
+    # otherwise the cursor must be in the past so go ahead and pull data
     headers = {'Accept-Language': 'en_US',
                'Authorization': f'Bearer {request_json["state"]["access_token"]}'}
 
-    day = parser.parse(request_json['state']['cursor']).date()
-
-    activity = req.get(
+    activity = rq.get(
         'https://api.fitbit.com/1/user/-/activities/date/'
-        f'{day.isoformat()}.json',
+        f'{cursor_date.isoformat()}.json',
         headers=headers)
-    weight = req.get(
+    weight = rq.get(
         'https://api.fitbit.com/1/user/-/body/log/weight/date/'
-        f'{day.isoformat()}.json',
+        f'{cursor_date.isoformat()}.json',
         headers=headers)
 
     # the fitbit API returns a 401 code when the access token has expired
@@ -98,11 +116,20 @@ def handler(request):
 
         return {
             'state': {
-                'cursor': day.isoformat(),
+                'cursor': cursor_date.isoformat(),
                 'access_token': new_token['access_token'],
                 'refresh_token': new_token['refresh_token']
             },
             'hasMore': True
+        }
+
+    # the fitbit API returns a 429 code when you hit the rate limit
+    # see https://dev.fitbit.com/build/reference/web-api/basics/#hitting-the-rate-limit
+    if activity.status_code == 429 or weight.status_code == 429:
+
+        return {
+            'state': request_json['state'],
+            'hasMore': False
         }
 
     # parse the response from the fitbit API
@@ -110,7 +137,7 @@ def handler(request):
     weight_json = weight.json()
 
     activity_insert = {
-        'date': day.isoformat(),
+        'date': cursor_date.isoformat(),
         'steps': activity_json['summary']['steps'],
         'caloriesBMR': activity_json['summary']['caloriesBMR'],
         'caloriesOut': activity_json['summary']['caloriesOut'],
@@ -123,12 +150,13 @@ def handler(request):
     }
 
     weight_insert = {
-        'date': day.isoformat(),
-        'weight': weight_json['weight'][0] if len(weight_json['weight']) > 0 else None}
+        'date': cursor_date.isoformat(),
+        'weight': weight_json['weight'][0]['weight'] if len(weight_json['weight']) > 0 else None
+    }
 
     return {
         'state': {
-            'cursor': (day + dt.timedelta(days=1)).isoformat(),
+            'cursor': (cursor_date + dt.timedelta(days=1)).isoformat(),
             'access_token': request_json['state']['access_token'],
             'refresh_token': request_json['state']['refresh_token']
         },
@@ -144,5 +172,5 @@ def handler(request):
                 'primary_key': ['date']
             }
         },
-        'hasMore': day < dt.date.today()
+        'hasMore': True
     }
