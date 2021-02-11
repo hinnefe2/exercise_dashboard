@@ -22,30 +22,48 @@ def handler(request):
 
     request_json = request.get_json()
 
-    client = mfp.Client(username=request_json['secrets']['MYFITNESSPAL_USERNAME'],
-                        password=request_json['secrets']['MYFITNESSPAL_PASSWORD'])
+    client = mfp.Client(
+        username=request_json['secrets']['MYFITNESSPAL_USERNAME'],
+        password=request_json['secrets']['MYFITNESSPAL_PASSWORD'])
 
-    # start at the beginning of 2017 if no starting date given
+    # initialize state for the case when fivetran is starting from scratch.
+    # put initial values for the cursor and tokens in the 'secrets' node.
+    # fivetran should automatically keep track of subsequent updates in the
+    # 'state' node.
     if 'cursor' not in request_json['state']:
-        cursor = '2017-01-01T00:00:00'
-    else:
-        cursor = request_json['state']['cursor']
+        request_json['state']['cursor'] = request_json['secrets']['cursor']
 
-    day = parser.parse(cursor)
-    next_day = day + dt.timedelta(days=1)
+    cursor = request_json['state']['cursor']
+    cursor_date = parser.parse(cursor).date()
 
-    diary = client.get_date(day.year, day.month, day.day)
+    if cursor_date > dt.date.today():
+        raise ValueError(
+            f"cursor value {cursor_date.isoformat()} is later than "
+            f"today's date {dt.date.today().isoformat()}")
+
+    # if the cursor is at the current date return immediately without
+    # incrementing the cursor. This is to ensure we don't pull data for a day
+    # until that day is over.
+    if cursor_date == dt.date.today():
+        return {
+            'state': {
+                'cursor': cursor,
+            },
+            'hasMore': False
+        }
+
+    # otherwise the cursor must be in the past so go ahead and pull data
+    diary = client.get_date(
+        cursor_date.year, cursor_date.month, cursor_date.day)
 
     total_records = [
-        {'date': day.isoformat(), 'name': meal.name, **meal.totals}
+        {'date': cursor_date.isoformat(), 'name': meal.name, **meal.totals}
         for meal in diary.meals
         ]
 
-    has_more = day < dt.datetime.today()
-
-    response = {
+    return {
         'state': {
-            'cursor': next_day.isoformat()
+            'cursor': (cursor_date + dt.timedelta(days=1)).isoformat()
         },
         'insert': {
             'totals': total_records
@@ -57,7 +75,5 @@ def handler(request):
                 'primary_key': ['date', 'name']
             }
         },
-        'hasMore': has_more
+        'hasMore': True
     }
-
-    return response
