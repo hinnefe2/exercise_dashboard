@@ -42,6 +42,9 @@ def refresh_fitbit_token(request):
     resp = rq.post('https://api.fitbit.com/oauth2/token',
                    headers=auth_header, params=post_params)
 
+    if resp.status_code != 200:
+        raise ValueError(f'OAuth token refresh request returned {resp.json()}')
+
     new_token = resp.json()
 
     return new_token
