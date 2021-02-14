@@ -52,13 +52,16 @@ def handler(request):
             'hasMore': False
         }
 
-    # otherwise the cursor must be in the past so go ahead and pull data
-    diary = client.get_date(
-        cursor_date.year, cursor_date.month, cursor_date.day)
+    # otherwise the cursor must be in the past so go ahead and pull data.
+
+    # pull data from the two most recent days to catch cases when I forget to
+    # enter data for dinner until the next morning
+    prev_date = cursor_date - dt.timedelta(days=1)
 
     total_records = [
-        {'date': cursor_date.isoformat(), 'name': meal.name, **meal.totals}
-        for meal in diary.meals
+        {'date': date.isoformat(), 'name': meal.name, **meal.totals}
+        for date in [prev_date, cursor_date]
+        for meal in client.get_date(date.year, date.month, date.day).meals
         ]
 
     return {
