@@ -128,7 +128,7 @@ def handler(request):
     }
 
     sessions = rq.get(
-        "'https://www.googleapis.com/fitness/v1/users/me/sessions",
+        "https://www.googleapis.com/fitness/v1/users/me/sessions",
         headers=headers,
         params=params,
     )
