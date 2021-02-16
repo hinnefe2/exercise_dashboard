@@ -107,15 +107,24 @@ def handler(request):
     # control pagination with startTime and endTime parameters which have to be
     # RFC3339 timestamps. in this case this means adding a timezone. See:
     # https://developers.google.com/fit/rest/v1/reference/users/sessions/list#parameters
+    start_date = cursor_date
+    end_date = cursor_date + dt.timedelta(days=1)
+
     params = {
         # hardcoding 'America/Chicago' timezone because that makes the date
         # cursor intuitive for my data
-        "startTime": cursor_date.replace(
-            tzinfo=tz.gettz("America/Chicago")
+        "startTime": dt.datetime(
+            start_date.year,
+            start_date.month,
+            start_date.day,
+            tzinfo=tz.gettz("America/Chicago"),
         ).isoformat(),
-        "endTime": (cursor_date + dt.timedelta(days=1))
-        .replace(tzinfo=tz.gettz("America/Chicago"))
-        .isoformat(),
+        "endTime": dt.datetime(
+            end_date.year,
+            end_date.month,
+            end_date.day,
+            tzinfo=tz.gettz("America/Chicago"),
+        ).isoformat(),
     }
 
     sessions = rq.get(
