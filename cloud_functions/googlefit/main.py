@@ -171,7 +171,7 @@ def handler(request):
             "access_token": request_json["state"]["access_token"],
             "refresh_token": request_json["state"]["refresh_token"],
         },
-        "insert": {"sessions": sessions_insert},
+        "insert": {"sessions": sessions_insert if sessions_insert else None},
         "schema": {
             "sessions": {"primary_key": ["date", "id"]},
         },
