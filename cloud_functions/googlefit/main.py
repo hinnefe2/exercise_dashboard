@@ -26,7 +26,7 @@ def refresh_oauth_token(request):
 
     post_params = {
         "grant_type": "refresh_token",
-        "refresh_token": request_json["state"]["refresh_token"],
+        "refresh_token": request_json["secrets"]["refresh_token"],
     }
 
     resp = rq.post(
@@ -73,10 +73,6 @@ def handler(request):
         request_json["state"]["cursor"] = request_json["secrets"]["cursor"]
     if "access_token" not in request_json["state"]:
         request_json["state"]["access_token"] = request_json["secrets"]["access_token"]
-    if "refresh_token" not in request_json["state"]:
-        request_json["state"]["refresh_token"] = request_json["secrets"][
-            "refresh_token"
-        ]
 
     cursor = request_json["state"]["cursor"]
     cursor_date = parser.parse(cursor).date()
@@ -139,11 +135,13 @@ def handler(request):
 
         new_token = refresh_oauth_token(request)
 
+        # apparently the way Google APIs do OAuth the refresh token never
+        # expires and so doesn't need to be refreshed itself
+        # c.f. https://developers.google.com/identity/protocols/oauth2/web-server#offline
         return {
             "state": {
                 "cursor": cursor_date.isoformat(),
                 "access_token": new_token["access_token"],
-                "refresh_token": new_token["refresh_token"],
             },
             "hasMore": True,
         }
@@ -169,7 +167,6 @@ def handler(request):
         "state": {
             "cursor": (cursor_date + dt.timedelta(days=1)).isoformat(),
             "access_token": request_json["state"]["access_token"],
-            "refresh_token": request_json["state"]["refresh_token"],
         },
         "insert": {"sessions": sessions_insert if sessions_insert else None},
         "schema": {
