@@ -4,7 +4,6 @@ import os
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -21,19 +20,27 @@ engine = create_engine(
 )
 
 
-def _build_activity_heatmap():
-    year = 2019
+def _build_activity_heatmap(timeseries_data):
 
-    d1 = datetime.date(year, 8, 1)
-    d2 = datetime.date(year + 1, 7, 15)
+    d1 = timeseries_data["date"].min().date()
+    d2 = timeseries_data["date"].max().date()
 
     delta = d2 - d1
 
     # gives me a list with datetimes for each day a year
     dates_in_year = [d1 + datetime.timedelta(i) for i in range(delta.days + 1)]
 
+    joined = (
+        pd.Series(dates_in_year)
+        .to_frame()
+        .set_index(0)
+        .join(timeseries_data.set_index("date"))
+    )
+
     # the activity values to actually plot in the heatmap
-    z = np.random.randint(2, size=(len(dates_in_year)))
+    # dates when the joined data isn't null are days when
+    # there were activity
+    z = (~joined.isna()).astype(int)['values'].values
 
     # gives something like list of strings like '2018-01-25' for each date.
     # Used in data trace to make good hovertext.
@@ -90,7 +97,7 @@ def build_activity_indicator(timeseries_data, indicator_value, indicator_name):
         specs=[[{"type": "heatmap"}, {"type": "indicator"}]],
     )
 
-    trace, layout = _build_activity_heatmap()
+    trace, layout = _build_activity_heatmap(timeseries_data)
 
     # add the timeseries scatter plot
     fig.add_trace(
@@ -229,6 +236,29 @@ def prep_weight_data(engine, start_date):
     return weight_data, indicator
 
 
+def prep_activity_data(engine, start_date):
+    """Read and process exercise activity data.
+
+    Returns
+    -------
+    pd.DataFrame
+        A dataframe having columns ['date', 'values']
+    float
+        A scalar value
+    """
+
+    # TODO: move the ETL into dbt
+    # including casting 'date' to a datetime column in postgres
+    # including back/forward filling (or interpolating)
+    activity_data = pd.read_sql("SELECT * FROM googlefit.sessions", engine)
+    activity_data = activity_data[["date", "name"]]
+    activity_data["date"] = pd.to_datetime(activity_data["date"])
+
+    activity_data.columns = ["date", "values"]
+
+    return activity_data, 0
+
+
 calorie_ts, calorie_indicator = prep_calorie_data(
     engine, datetime.date.fromisoformat("2021-02-09")
 )
@@ -237,11 +267,17 @@ weight_ts, weight_indicator = prep_weight_data(
     engine, datetime.date.fromisoformat("2021-02-01")
 )
 
+activity_ts, activity_indicator = prep_activity_data(
+    engine, datetime.date.fromisoformat("2021-02-01")
+)
+
 app.layout = html.Div(
     children=[
         dcc.Graph(
             id="exercise-fig",
-            figure=build_activity_indicator(None, 3, "Current Streak"),
+            figure=build_activity_indicator(
+                activity_ts, activity_indicator, "Current Streak"
+            ),
         ),
         dcc.Graph(
             id="weight-fig",
@@ -259,4 +295,4 @@ app.layout = html.Div(
 )
 
 if __name__ == "__main__":
-    app.run_server(debug=False)
+    app.run_server(debug=True)
