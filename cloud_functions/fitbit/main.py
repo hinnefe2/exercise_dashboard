@@ -92,10 +92,9 @@ def handler(request):
     # until that day is over.
     if cursor_date == dt.date.today():
         return {
-            'state': {
-                'cursor': cursor,
-            },
-            'hasMore': False
+            'state': request_json['state'],
+            'hasMore': False,
+            'returnCause': 'Cursor date not complete yet',
         }
 
     # otherwise the cursor must be in the past so go ahead and pull data
@@ -123,7 +122,8 @@ def handler(request):
                 'access_token': new_token['access_token'],
                 'refresh_token': new_token['refresh_token']
             },
-            'hasMore': True
+            'hasMore': True,
+            'returnCause': 'OAuth token required refresh',
         }
 
     # the fitbit API returns a 429 code when you hit the rate limit
@@ -132,7 +132,8 @@ def handler(request):
 
         return {
             'state': request_json['state'],
-            'hasMore': False
+            'hasMore': False,
+            'returnCause': 'Hit rate limit',
         }
 
     # parse the response from the fitbit API
@@ -161,7 +162,8 @@ def handler(request):
         'state': {
             'cursor': (cursor_date + dt.timedelta(days=1)).isoformat(),
             'access_token': request_json['state']['access_token'],
-            'refresh_token': request_json['state']['refresh_token']
+            'refresh_token': request_json['state']['refresh_token'],
+            'returnCause': 'Successfully retrieved data',
         },
         'insert': {
             'activity': [activity_insert],
