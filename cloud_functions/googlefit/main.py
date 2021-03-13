@@ -48,7 +48,7 @@ def refresh_oauth_token(request):
 
 
 def handler(request):
-    """Scrape data from Fitbit.
+    """Scrape data from Google Fit.
 
     Parameters
     ----------
