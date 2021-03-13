@@ -88,10 +88,9 @@ def handler(request):
     # until that day is over.
     if cursor_date == dt.date.today():
         return {
-            "state": {
-                "cursor": cursor,
-            },
+            'state': request_json['state'],
             "hasMore": False,
+            'returnCause': 'Cursor date not complete yet',
         }
 
     # otherwise the cursor must be in the past so go ahead and pull data
@@ -144,6 +143,7 @@ def handler(request):
                 "access_token": new_token["access_token"],
             },
             "hasMore": True,
+            'returnCause': 'OAuth token required refresh',
         }
 
     # parse the response from the Google Fit API
