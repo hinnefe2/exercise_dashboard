@@ -16,7 +16,7 @@ external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 engine = create_engine(
-    "postgresql://{PGUSERNAME}:{PGPASSWORD}@{PGHOST}:5432/postgres".format(**os.environ)
+    "postgresql://{PGUSER}:{PGPASSWORD}@{PGHOST}:5432/postgres".format(**os.environ)
 )
 
 
@@ -40,7 +40,7 @@ def _build_activity_heatmap(timeseries_data):
     # the activity values to actually plot in the heatmap
     # dates when the joined data isn't null are days when
     # there were activity
-    z = (~joined.isna()).astype(int)['values'].values
+    z = (~joined.isna()).astype(int)["values"].values
 
     # gives something like list of strings like '2018-01-25' for each date.
     # Used in data trace to make good hovertext.
@@ -143,6 +143,19 @@ def build_timeseries_indicator(timeseries_data, indicator_value, indicator_name)
         row=1,
         col=1,
     )
+    # add the rolling average timeseries line plot
+    rolling = (
+        timeseries_data.set_index("date")
+        .rolling(4, win_type="triang", center=True)
+        .mean()
+        .dropna()
+        .reset_index()
+    )
+    fig.add_trace(
+        go.Scatter(mode="lines", x=rolling["date"], y=rolling["values"]),
+        row=1,
+        col=1,
+    )
 
     # add summary statistic "indicator"
     fig.add_trace(
@@ -221,12 +234,13 @@ def prep_weight_data(engine, start_date):
     # indicator for weight is difference in 7 day rolling means
     # now versus a week ago
     today = datetime.date.today()
+    latest = weight_data.index.max()
     week_ago = today - datetime.timedelta(weeks=1)
 
     rolling = weight_data.rolling(7).mean()
 
     indicator = (
-        rolling.loc[today.isoformat(), "weight"]
+        rolling.loc[latest.isoformat(), "weight"]
         - rolling.loc[week_ago.isoformat(), "weight"]
     )
 
