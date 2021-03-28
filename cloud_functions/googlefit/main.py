@@ -131,7 +131,6 @@ def handler(request):
     )
 
     # the google fit API returns a 401 code when the access token has expired
-    # see https://dev.fitbit.com/build/reference/web-api/oauth2/#refreshing-tokens
     if sessions.status_code == 401:
 
         new_token = refresh_oauth_token(request)
@@ -139,11 +138,12 @@ def handler(request):
         # apparently the way Google APIs do OAuth the refresh token never
         # expires and so doesn't need to be refreshed itself
         # c.f. https://developers.google.com/identity/protocols/oauth2/web-server#offline
+        # c.f. https://stackoverflow.com/questions/8942340/get-refresh-token-google-api
         return {
             "state": {
                 "cursor": cursor_date.isoformat(),
                 "access_token": new_token["access_token"],
-                "refresh_token": new_token["refresh_token"],
+                "refresh_token": request_json["state"]["refresh_token"],
             },
             "hasMore": True,
             'returnCause': 'OAuth token required refresh',
