@@ -170,6 +170,7 @@ def handler(request):
         "state": {
             "cursor": (cursor_date + dt.timedelta(days=1)).isoformat(),
             "access_token": request_json["state"]["access_token"],
+            "refresh_token": request_json["state"]["refresh_token"],
         },
         "insert": {"sessions": sessions_insert if sessions_insert else None},
         "schema": {
