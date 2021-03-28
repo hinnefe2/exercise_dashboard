@@ -26,7 +26,7 @@ def refresh_oauth_token(request):
 
     post_params = {
         "grant_type": "refresh_token",
-        "refresh_token": request_json["secrets"]["refresh_token"],
+        "refresh_token": request_json["state"]["refresh_token"],
     }
 
     resp = rq.post(
@@ -73,6 +73,8 @@ def handler(request):
         request_json["state"]["cursor"] = request_json["secrets"]["cursor"]
     if "access_token" not in request_json["state"]:
         request_json["state"]["access_token"] = request_json["secrets"]["access_token"]
+    if "refresh_token" not in request_json["state"]:
+        request_json["state"]["refresh_token"] = request_json["secrets"]["refresh_token"]
 
     cursor = request_json["state"]["cursor"]
     cursor_date = parser.parse(cursor).date()
@@ -141,6 +143,7 @@ def handler(request):
             "state": {
                 "cursor": cursor_date.isoformat(),
                 "access_token": new_token["access_token"],
+                "refresh_token": new_token["refresh_token"],
             },
             "hasMore": True,
             'returnCause': 'OAuth token required refresh',
